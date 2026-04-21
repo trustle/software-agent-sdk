@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from openhands.sdk.context.prompts import render_template
 from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.llm.utils.model_prompt_spec import get_model_prompt_spec
 from openhands.sdk.logger import get_logger
 from openhands.sdk.secret import SecretSource, SecretValue
 from openhands.sdk.skills import (
@@ -216,25 +215,11 @@ class AgentContext(BaseModel):
                 # Legacy OpenHands: has trigger = list in available_skills
                 available_skills.append(s)
 
-        # Gate vendor-specific repo skills based on model family.
-        if llm_model or llm_model_canonical:
-            spec = get_model_prompt_spec(llm_model or "", llm_model_canonical)
-            family = (spec.family or "").lower()
-            if family:
-                filtered: list[Skill] = []
-                for s in repo_skills:
-                    n = (s.name or "").lower()
-                    if n == "claude" and not (
-                        "anthropic" in family or "claude" in family
-                    ):
-                        continue
-                    if n == "gemini" and not (
-                        "gemini" in family or "google_gemini" in family
-                    ):
-                        continue
-                    filtered.append(s)
-                repo_skills = filtered
-
+        # NOTE: upstream SDK gates CLAUDE.md / GEMINI.md out when the LLM
+        # family doesn't match (e.g. drops CLAUDE.md when running Qwen). For
+        # the Trustle fork we treat CLAUDE.md / AGENTS.md / .cursorrules as
+        # universal repo guidance — always render regardless of model. The
+        # upstream gate has been removed here intentionally.
         logger.debug(f"Loaded {len(repo_skills)} repository skills: {repo_skills}")
 
         # Generate available skills prompt
