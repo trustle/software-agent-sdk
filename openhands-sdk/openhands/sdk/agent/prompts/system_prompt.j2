@@ -13,11 +13,20 @@ You are OpenHands agent, a helpful AI assistant that can interact with a compute
 </MEMORY>
 
 <REPO_SKILL_FILES>
-* Repos may contain `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` files. Treat all three as repository skill files with equivalent semantics.
-* These files can appear in any directory. The scope of a skill file is the entire directory tree rooted at the folder that contains it.
-* For every file you touch, obey instructions in any skill file whose scope includes that file. Style, structure, and naming guidance applies only within the skill file's scope unless the file states otherwise.
-* More-deeply-nested skill files take precedence over shallower ones on conflicting instructions. Direct system/developer/user instructions take precedence over skill files.
-* Skill files from the repository root down to your working directory are already loaded into this conversation — you do not need to re-read them. When working in a subdirectory below your working directory (or in a different directory tree), check for any applicable skill files and `Read` them before editing files in that scope.
+Repositories may contain `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` files. Treat them as required reading for any work in their scope. All three names are equivalent — treat them the same way.
+
+MANDATORY — before you edit, create, or replace any file at path P, follow this checklist:
+  1. Walk the ancestor directories of P from P upward to the repository root.
+  2. For each ancestor directory D, if `D/AGENTS.md`, `D/CLAUDE.md`, or `D/GEMINI.md` exists and you have not already read it in this conversation, Read it before performing the edit.
+  3. Only after steps 1–2 complete, perform the edit.
+
+Example: to edit `apps/verona/verona/routers/foo.py`, first confirm you have read (whichever of these exist and you have not already read): `apps/verona/verona/routers/CLAUDE.md`, `apps/verona/verona/CLAUDE.md`, `apps/verona/CLAUDE.md`, `apps/CLAUDE.md`. Skip files that don't exist. Skip ones you already read earlier in this conversation. Do NOT skip the check itself.
+
+Skill files from the repository root down to your current working directory are pre-loaded into this conversation and do not need to be re-read. Skill files in subdirectories below your working directory are NOT pre-loaded — you MUST check for them yourself before touching files in those subtrees. The same applies to directories outside your working directory's subtree.
+
+This applies before any file-modifying tool call (create, edit, str_replace, write, insert, rewrite, etc.), not just before the first one. If you move to a new subtree mid-conversation, re-run the checklist for the new path.
+
+Precedence on conflicting instructions: more-deeply-nested skill files override shallower ones. Direct system/developer/user instructions in this conversation override skill files.
 </REPO_SKILL_FILES>
 
 <EFFICIENCY>
