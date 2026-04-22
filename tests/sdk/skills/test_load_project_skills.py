@@ -385,3 +385,51 @@ def test_load_project_skills_loads_skills_directories_from_git_root(tmp_path):
     assert any(
         s.name == "root_skill" and "Loaded from root" in s.content for s in skills
     )
+
+
+def test_load_project_skills_loads_intermediate_dirs_between_workdir_and_git_root(
+    tmp_path,
+):
+    """Every directory between work_dir and git_root should be searched for
+    third-party skill files (mirrors the AGENTS.md / CLAUDE.md per-directory
+    discovery semantics)."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "CLAUDE.md").write_text("# Root-level CLAUDE")
+
+    mid = tmp_path / "apps" / "london"
+    mid.mkdir(parents=True)
+    (mid / "CLAUDE.md").write_text("# Mid-level CLAUDE")
+
+    deep = mid / "src" / "london" / "providers" / "aws"
+    deep.mkdir(parents=True)
+    (deep / "CLAUDE.md").write_text("# Deep-level CLAUDE")
+
+    skills = load_project_skills(deep)
+
+    # Only one skill named "claude" is kept (dedup on skill name), and the
+    # innermost file wins — matching the "more-deeply-nested takes precedence"
+    # convention.
+    claude_skills = [s for s in skills if s.name == "claude"]
+    assert len(claude_skills) == 1
+    assert "Deep-level CLAUDE" in claude_skills[0].content
+
+
+def test_load_project_skills_intermediate_dir_wins_over_root(tmp_path):
+    """When there is no skill file in work_dir but there is one in an
+    intermediate directory and in the repo root, the intermediate (deeper)
+    directory should win."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "CLAUDE.md").write_text("# Root CLAUDE")
+
+    mid = tmp_path / "apps" / "london"
+    mid.mkdir(parents=True)
+    (mid / "CLAUDE.md").write_text("# Mid CLAUDE")
+
+    deep = mid / "src"
+    deep.mkdir()
+    # No CLAUDE.md in `deep` itself — should fall through to `mid`.
+
+    skills = load_project_skills(deep)
+    claude_skills = [s for s in skills if s.name == "claude"]
+    assert len(claude_skills) == 1
+    assert "Mid CLAUDE" in claude_skills[0].content

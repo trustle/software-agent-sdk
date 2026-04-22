@@ -833,12 +833,16 @@ def load_project_skills(work_dir: str | Path) -> list[Skill]:
     Searches for skills in {work_dir}/.agents/skills/, {work_dir}/.openhands/skills/,
     and {work_dir}/.openhands/microagents/ (legacy).
 
-    If the working directory is inside a Git repository, this function also loads
-    skills from the Git repo root, so running from a subdirectory still picks up
-    repo-level guidance (e.g., AGENTS.md).
+    If the working directory is inside a Git repository, this function also walks
+    upward from work_dir through every intermediate directory up to (and including)
+    the Git repo root. That way running in a deeply-nested subdirectory picks up
+    repo-level guidance AND any intermediate AGENTS.md / CLAUDE.md / GEMINI.md /
+    .cursorrules files between work_dir and the repo root.
 
-    Skills are merged in priority order, with the *working directory* taking
-    precedence over the Git repo root when duplicates exist.
+    Skills are merged in priority order, with the *deepest* directory (closest to
+    work_dir) taking precedence over shallower ones when duplicate skill names
+    exist — matching the "more-deeply-nested wins" semantics described in the
+    AGENTS.md / CLAUDE.md conventions.
 
     Use .agents/skills for new skills. .openhands/skills is the legacy OpenHands
     location, and .openhands/microagents is deprecated.
@@ -846,8 +850,9 @@ def load_project_skills(work_dir: str | Path) -> list[Skill]:
     Example: If "my-skill" exists in both .agents/skills/ and .openhands/skills/,
     the version from .agents/skills/ is used.
 
-    Also loads third-party skill files (AGENTS.md, .cursorrules, etc.) from the
-    working directory and (if different) the git repo root.
+    Also loads third-party skill files (AGENTS.md, CLAUDE.md, GEMINI.md,
+    .cursorrules, etc.) from each directory between work_dir and the git repo
+    root (inclusive). Deepest wins on name collision.
 
     Args:
         work_dir: Path to the project/working directory.
@@ -864,10 +869,18 @@ def load_project_skills(work_dir: str | Path) -> list[Skill]:
 
     git_root = _find_git_repo_root(work_dir)
 
-    # Working dir takes precedence (more local rules override repo root rules)
+    # Walk from work_dir up to (and including) git_root so intermediate skill
+    # files are discovered. Deepest first — seen_names dedup below gives
+    # innermost-wins precedence.
     search_roots: list[Path] = [work_dir]
     if git_root is not None and git_root != work_dir:
-        search_roots.append(git_root)
+        cur = work_dir
+        while cur != git_root:
+            parent = cur.parent
+            if parent == cur:
+                break
+            search_roots.append(parent)
+            cur = parent
 
     # First, load third-party skill files (AGENTS.md, .cursorrules, etc.) from each
     # search root. This ensures they are loaded even if .openhands/skills doesn't
